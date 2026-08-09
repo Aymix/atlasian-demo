@@ -12,14 +12,6 @@ config {
   call_module_type = "local"
 }
 
-# ── AWS Plugin ─────────────────────────────────────────────────────────────
-
-plugin "aws" {
-  enabled = true
-  version = "0.32.0"
-  source  = "github.com/terraform-linters/tflint-ruleset-aws"
-}
-
 # ── Rules ──────────────────────────────────────────────────────────────────
 
 # Disallow deprecated (0.11-style) interpolation
