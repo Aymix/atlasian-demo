@@ -135,7 +135,6 @@ workflows:
         - init
         - run: terraform validate
         - plan
-      # Env vars available in custom run steps
     apply:
       steps:
         - run: echo "🚀 Applying $PROJECT_NAME after validation"

@@ -7,24 +7,30 @@ services:
     image: ghcr.io/runatlantis/atlantis:latest
     container_name: atlantis
     restart: unless-stopped
+    user: root
     ports:
       - "4141:4141"
     environment:
+      # GitHub integration
       ATLANTIS_GH_USER: ${ATLANTIS_GH_USER}
       ATLANTIS_GH_TOKEN: ${ATLANTIS_GH_TOKEN}
       ATLANTIS_GH_WEBHOOK_SECRET: ${ATLANTIS_GH_WEBHOOK_SECRET}
+
+      # Repository settings
       ATLANTIS_REPO_ALLOWLIST: ${ATLANTIS_REPO_ALLOWLIST}
       ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
       ATLANTIS_ATLANTIS_URL: ${ATLANTIS_URL:-http://localhost:4141}
+
+      # Server-level settings
       ATLANTIS_PORT: 4141
       ATLANTIS_LOG_LEVEL: debug
       ATLANTIS_EMOJI_REACTION: eyes
+      ATLANTIS_SILENCE_NO_PROJECTS: "false"
+      ATLANTIS_AUTOMERGE: "false"
+      ATLANTIS_CHECKOUT_STRATEGY: merge
+      ATLANTIS_ENABLE_REGEXP_CMD: "true"
+      ATLANTIS_DATA_DIR: /tmp/atlantis-data
     volumes:
       - ./server-side-repo-config.yaml:/etc/atlantis/repos.yaml:ro
-      - atlantis-data:/home/atlantis/.atlantis
     env_file:
       - .env
-
-volumes:
-  atlantis-data:
-    driver: local

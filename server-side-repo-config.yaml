@@ -1,47 +1,18 @@
 ################################################################################
-# Server-Side Repo Configuration — Full Features Demo
-# Loaded by Atlantis server via --repo-config flag
+# Server-Side Repo Configuration
+# Only valid repo-level fields go here.
+# Server-wide flags go in docker-compose.yml as environment variables.
 ################################################################################
 
 repos:
   - id: /.*/
-
-    # What repo-level atlantis.yaml can override
     allowed_overrides:
       - apply_requirements
       - workflow
       - delete_source_branch_on_merge
-
-    # Apply requirements (relaxed for solo training)
-    # Options: approved, mergeable, undiverged
     apply_requirements: []
-
-    # Allow repos to define custom workflows
     allow_custom_workflows: true
-
-    # Allow repos to restrict branch prefixes
-    allowed_regexp_prefixes:
-      - dev/
-      - feat/
-      - fix/
-      - ex/
-
-    # Checkout merge commit (shows what main will look like after merge)
-    checkout_strategy: merge
-
-    # Emoji reaction when Atlantis picks up a command
-    emoji_reaction: eyes
-
-    # Delete source branch after merge
     delete_source_branch_on_merge: false
-
-    # Silence Atlantis when no projects are modified in PR
-    silence_no_projects: false
-
-    # Enable automerge at server level
-    automerge: false
-
-# ── Workflows ────────────────────────────────────────────────────────────
 
 workflows:
   default:
