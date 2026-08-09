@@ -95,7 +95,7 @@ Verify: open your ngrok URL → Atlantis UI loads.
 ### Step 8: Add webhook
 
 1. `https://github.com/<YOU>/atlasian-demo/settings/hooks` → **Add webhook**
-2. **Payload URL**: `https://xxxx.ngrok-free.app/events`
+2. **Payload URL**: `https://snore-epilogue-clumsily.ngrok-free.dev/events`
 3. **Content type**: `application/json`
 4. **Secret**: `atlantis-secret-123`
 5. **Events**: Select individual → ✅ Issue comments, ✅ Pull requests, ✅ Pull request reviews, ✅ Pushes
