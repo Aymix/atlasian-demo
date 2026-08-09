@@ -29,6 +29,7 @@ resource "random_id" "ecs" {
   keepers = {
     project = var.project_name
     env     = var.environment
+    region  = var.region
   }
 }
 

@@ -28,6 +28,7 @@ resource "random_id" "iam" {
   keepers = {
     project = var.project_name
     env     = var.environment
+    region  = var.region
   }
 }
 

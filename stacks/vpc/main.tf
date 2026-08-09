@@ -30,6 +30,7 @@ resource "null_resource" "vpc" {
     cidr_block  = var.vpc_cidr
     environment = var.environment
     name        = "${var.project_name}-${var.environment}-vpc"
+    region      = var.region
   }
 }
 

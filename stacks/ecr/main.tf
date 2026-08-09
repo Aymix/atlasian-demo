@@ -27,6 +27,7 @@ resource "random_id" "ecr" {
   byte_length = 6
   keepers = {
     repo_name = "${var.project_name}-${var.environment}-app"
+    region    = var.region
   }
 }
 
