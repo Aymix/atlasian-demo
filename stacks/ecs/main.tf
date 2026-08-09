@@ -63,8 +63,8 @@ resource "null_resource" "task_definition" {
 # Simulated ECS Security Group
 resource "null_resource" "ecs_sg" {
   triggers = {
-    name          = "${var.project_name}-${var.environment}-ecs-sg"
-    ingress_port  = tostring(var.container_port)
+    name         = "${var.project_name}-${var.environment}-ecs-sg"
+    ingress_port = tostring(var.container_port)
   }
 }
 
