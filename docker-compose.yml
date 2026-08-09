@@ -1,0 +1,30 @@
+################################################################################
+# Docker Compose — Atlantis Local Server
+################################################################################
+
+services:
+  atlantis:
+    image: ghcr.io/runatlantis/atlantis:latest
+    container_name: atlantis
+    restart: unless-stopped
+    ports:
+      - "4141:4141"
+    environment:
+      ATLANTIS_GH_USER: ${ATLANTIS_GH_USER}
+      ATLANTIS_GH_TOKEN: ${ATLANTIS_GH_TOKEN}
+      ATLANTIS_GH_WEBHOOK_SECRET: ${ATLANTIS_GH_WEBHOOK_SECRET}
+      ATLANTIS_REPO_ALLOWLIST: ${ATLANTIS_REPO_ALLOWLIST}
+      ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
+      ATLANTIS_ATLANTIS_URL: ${ATLANTIS_URL:-http://localhost:4141}
+      ATLANTIS_PORT: 4141
+      ATLANTIS_LOG_LEVEL: debug
+      ATLANTIS_EMOJI_REACTION: eyes
+    volumes:
+      - ./server-side-repo-config.yaml:/etc/atlantis/repos.yaml:ro
+      - atlantis-data:/home/atlantis/.atlantis
+    env_file:
+      - .env
+
+volumes:
+  atlantis-data:
+    driver: local

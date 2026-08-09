@@ -1,0 +1,161 @@
+################################################################################
+# Atlantis Repo-Level Configuration — Full Features Demo
+################################################################################
+
+version: 3
+automerge: false
+parallel_plan: true
+parallel_apply: false
+abort_on_execution_order_fail: true
+
+projects:
+  # ── VPC — uses custom "validated" workflow ───────────────────────────────
+  - name: vpc
+    dir: stacks/vpc
+    workspace: default
+    terraform_version: v1.9.0
+    autoplan:
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "../../modules/tags/**/*.tf"
+      enabled: true
+    apply_requirements:
+      - mergeable
+    workflow: validated
+    execution_order_group: 1
+
+  # ── IAM ──────────────────────────────────────────────────────────────────
+  - name: iam
+    dir: stacks/iam
+    workspace: default
+    terraform_version: v1.9.0
+    autoplan:
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "../../modules/tags/**/*.tf"
+      enabled: true
+    apply_requirements:
+      - mergeable
+    workflow: default
+    execution_order_group: 1
+
+  # ── ECR ──────────────────────────────────────────────────────────────────
+  - name: ecr
+    dir: stacks/ecr
+    workspace: default
+    terraform_version: v1.9.0
+    autoplan:
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "../../modules/tags/**/*.tf"
+      enabled: true
+    apply_requirements:
+      - mergeable
+    workflow: default
+    execution_order_group: 1
+
+  # ── ALB (depends on VPC → higher execution order) ────────────────────────
+  - name: alb
+    dir: stacks/alb
+    workspace: default
+    terraform_version: v1.9.0
+    autoplan:
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "../../modules/tags/**/*.tf"
+      enabled: true
+    apply_requirements:
+      - mergeable
+    workflow: default
+    execution_order_group: 2
+
+  # ── ECS (depends on all → highest execution order) ───────────────────────
+  - name: ecs
+    dir: stacks/ecs
+    workspace: default
+    terraform_version: v1.9.0
+    autoplan:
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "../../modules/tags/**/*.tf"
+      enabled: true
+    apply_requirements:
+      - mergeable
+    workflow: default
+    execution_order_group: 3
+
+  # ── VPC Staging workspace (same dir, different workspace) ────────────────
+  - name: vpc-staging
+    dir: stacks/vpc
+    workspace: staging
+    terraform_version: v1.9.0
+    autoplan:
+      enabled: false
+    apply_requirements:
+      - mergeable
+    workflow: default
+
+  # ── ECS Staging workspace ────────────────────────────────────────────────
+  - name: ecs-staging
+    dir: stacks/ecs
+    workspace: staging
+    terraform_version: v1.9.0
+    autoplan:
+      enabled: false
+    apply_requirements:
+      - mergeable
+    workflow: default
+
+# ── Workflows ──────────────────────────────────────────────────────────────
+
+workflows:
+  # Standard workflow
+  default:
+    plan:
+      steps:
+        - run: echo "📋 Planning $PROJECT_NAME (workspace $WORKSPACE)"
+        - init
+        - plan
+    apply:
+      steps:
+        - run: echo "🚀 Applying $PROJECT_NAME (workspace $WORKSPACE)"
+        - apply
+
+  # Validated workflow — runs fmt + validate before plan
+  validated:
+    plan:
+      steps:
+        - run: echo "🔍 Running pre-plan checks on $PROJECT_NAME"
+        - run: terraform fmt -check -diff .
+        - init
+        - run: terraform validate
+        - plan
+      # Env vars available in custom run steps
+    apply:
+      steps:
+        - run: echo "🚀 Applying $PROJECT_NAME after validation"
+        - apply
+        - run: echo "✅ Apply complete for $PROJECT_NAME"
+
+  # Safe workflow — extra confirmation step
+  safe:
+    plan:
+      steps:
+        - init
+        - plan
+    apply:
+      steps:
+        - run: echo "⚠️  SAFE MODE — Applying $PROJECT_NAME"
+        - apply
+        - run: echo "📝 Post-apply — $PROJECT_NAME applied successfully at $(date)"
+
+allowed_regexp_prefixes:
+  - dev/
+  - feat/
+  - fix/
+  - ex/

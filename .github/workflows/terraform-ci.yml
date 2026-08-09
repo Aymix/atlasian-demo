@@ -1,0 +1,165 @@
+################################################################################
+# Terraform CI — Lint, Validate, Security Scan
+# Runs on every PR targeting main. Uses a matrix strategy to only check
+# stacks that have changed files.
+################################################################################
+
+name: "Terraform CI"
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "stacks/**"
+      - "modules/**"
+      - ".github/workflows/terraform-ci.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── Step 1: Detect which stacks changed ──────────────────────────────────
+  detect-changes:
+    name: "Detect Changed Stacks"
+    runs-on: ubuntu-latest
+    outputs:
+      stacks: ${{ steps.detect.outputs.stacks }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for git diff
+
+      - name: Detect changed stacks
+        id: detect
+        run: |
+          chmod +x scripts/detect-changed-stacks.sh
+          STACKS=$(./scripts/detect-changed-stacks.sh origin/${{ github.base_ref }})
+          echo "stacks=${STACKS}" >> "$GITHUB_OUTPUT"
+          if [[ "${STACKS}" == "[]" ]]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Changed stacks: ${STACKS}"
+
+  # ── Step 2: Format check ─────────────────────────────────────────────────
+  fmt:
+    name: "Format — ${{ matrix.stack }}"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJson(needs.detect-changes.outputs.stacks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Terraform Format Check
+        run: |
+          chmod +x scripts/tf-fmt-check.sh
+          ./scripts/tf-fmt-check.sh ${{ matrix.stack }}
+
+  # ── Step 3: Validate ─────────────────────────────────────────────────────
+  validate:
+    name: "Validate — ${{ matrix.stack }}"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJson(needs.detect-changes.outputs.stacks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Terraform Validate
+        run: |
+          chmod +x scripts/tf-validate.sh
+          ./scripts/tf-validate.sh ${{ matrix.stack }}
+
+  # ── Step 4: Lint with tflint ─────────────────────────────────────────────
+  lint:
+    name: "Lint — ${{ matrix.stack }}"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJson(needs.detect-changes.outputs.stacks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Setup tflint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Run tflint
+        run: |
+          chmod +x scripts/tf-lint.sh
+          ./scripts/tf-lint.sh ${{ matrix.stack }}
+
+  # ── Step 5: Security scan ────────────────────────────────────────────────
+  security:
+    name: "Security — ${{ matrix.stack }}"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJson(needs.detect-changes.outputs.stacks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "config"
+          scan-ref: "stacks/${{ matrix.stack }}"
+          severity: "HIGH,CRITICAL"
+          exit-code: "1"
+          format: "table"
+
+  # ── Summary ──────────────────────────────────────────────────────────────
+  ci-summary:
+    name: "CI Summary"
+    needs: [fmt, validate, lint, security]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.fmt.result }}" == "failure" ]] || \
+             [[ "${{ needs.validate.result }}" == "failure" ]] || \
+             [[ "${{ needs.lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.security.result }}" == "failure" ]]; then
+            echo "❌ One or more CI checks failed."
+            exit 1
+          else
+            echo "✅ All CI checks passed."
+          fi

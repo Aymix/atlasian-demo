@@ -1,0 +1,110 @@
+################################################################################
+# Terraform Plan — generates and posts plan output to PR
+# Can be triggered manually or on PR. Requires AWS credentials.
+################################################################################
+
+name: "Terraform Plan"
+
+on:
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: "Stack to plan (e.g. vpc, iam, ecs). Leave empty for all changed stacks."
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - "stacks/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write # for OIDC auth with AWS
+
+env:
+  AWS_REGION: eu-west-1
+  TF_VERSION: "1.9.x"
+
+jobs:
+  # ── Detect changed stacks (skip if manual with specific stack) ───────────
+  detect-changes:
+    name: "Detect Changes"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event.inputs.stack == ''
+    outputs:
+      stacks: ${{ steps.detect.outputs.stacks }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect
+        id: detect
+        run: |
+          chmod +x scripts/detect-changed-stacks.sh
+          STACKS=$(./scripts/detect-changed-stacks.sh origin/${{ github.base_ref || 'main' }})
+          echo "stacks=${STACKS}" >> "$GITHUB_OUTPUT"
+
+  # ── Plan each changed stack ──────────────────────────────────────────────
+  plan:
+    name: "Plan — ${{ matrix.stack }}"
+    needs: detect-changes
+    if: always() && (needs.detect-changes.outputs.stacks != '[]' || github.event.inputs.stack != '')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ github.event.inputs.stack != '' && fromJson(format('["{0}"]', github.event.inputs.stack)) || fromJson(needs.detect-changes.outputs.stacks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          chmod +x scripts/tf-plan.sh
+          ./scripts/tf-plan.sh ${{ matrix.stack }} 2>&1 | tee /tmp/plan-output.txt
+        continue-on-error: true
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('/tmp/plan-output.txt', 'utf8');
+            const body = `### 📋 Terraform Plan — \`${{ matrix.stack }}\`
+            
+            <details><summary>Show plan output</summary>
+
+            \`\`\`hcl
+            ${output.substring(0, 65000)}
+            \`\`\`
+
+            </details>
+
+            *Pushed by @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Check plan status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
