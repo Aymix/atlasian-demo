@@ -76,3 +76,11 @@ resource "null_resource" "internet_gateway" {
     name = "${var.project_name}-${var.environment}-igw"
   }
 }
+
+resource "aws_vpc" "main" {
+  # ... existing config ...
+  tags = {
+    Name       = "${var.project_name}-${var.environment}-vpc"
+    CostCenter = "engineering"
+  }
+}

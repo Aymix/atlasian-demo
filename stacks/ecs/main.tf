@@ -36,7 +36,7 @@ resource "random_id" "ecs" {
 resource "null_resource" "log_group" {
   triggers = {
     name              = "/ecs/${var.project_name}-${var.environment}"
-    retention_in_days = "7"
+    retention_in_days = "14"
   }
 }
 
@@ -62,8 +62,8 @@ resource "null_resource" "task_definition" {
 # Simulated ECS Security Group
 resource "null_resource" "ecs_sg" {
   triggers = {
-    name          = "${var.project_name}-${var.environment}-ecs-sg"
-    ingress_port  = tostring(var.container_port)
+    name         = "${var.project_name}-${var.environment}-ecs-sg"
+    ingress_port = tostring(var.container_port)
   }
 }
 
