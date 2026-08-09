@@ -11,11 +11,21 @@ set -euo pipefail
 
 STACK_NAME="${1:?Usage: $0 <stack_name>}"
 STACK_DIR="stacks/${STACK_NAME}"
-CONFIG_FILE=".tflint.hcl"
+
+# Resolve repo root (where .tflint.hcl lives)
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIG_FILE="${REPO_ROOT}/.tflint.hcl"
 
 if [[ ! -d "${STACK_DIR}" ]]; then
   echo "❌ Error: Stack directory '${STACK_DIR}' not found."
   exit 1
+fi
+
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+  echo "⚠️  Warning: .tflint.hcl not found at ${CONFIG_FILE}, running without config."
+  CONFIG_FLAG=""
+else
+  CONFIG_FLAG="--config=${CONFIG_FILE}"
 fi
 
 echo "──────────────────────────────────────────"
@@ -28,13 +38,14 @@ if ! command -v tflint &>/dev/null; then
   curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
 fi
 
-# Initialize tflint plugins
+# Initialize tflint plugins (run from the stack dir with absolute config path)
 echo "→ Initializing tflint plugins..."
-tflint --init --config="${CONFIG_FILE}" --chdir="${STACK_DIR}"
+cd "${STACK_DIR}"
+tflint --init ${CONFIG_FLAG}
 
 # Run tflint
 echo "→ Running tflint..."
-if tflint --config="../../${CONFIG_FILE}" --chdir="${STACK_DIR}" --format=compact; then
+if tflint ${CONFIG_FLAG} --format=compact; then
   echo "✅ Linting passed for stack: ${STACK_NAME}"
 else
   echo "⚠️  Linting issues found in stack: ${STACK_NAME}"
